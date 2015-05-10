@@ -1,7 +1,7 @@
 # solar-data-parser
 A set of tools to make the archive of solar radiation data from the voluntary observers program (CWOP) available to all.
 
-The NOAA-CWOP Solar Data archive, launched in February 2009,has accumulated a quarter billion observations of solar radiation from a global network of contributing weather stations.  Links to the archive can be found at http://www.wxqa.com/lum_search.htm.  A data report prepared at the six-year anniversary of the archive is at http://www.wxqa.com/lum_search.htm.
+The NOAA-CWOP Solar Data archive, launched in February 2009,has accumulated a quarter billion observations of solar radiation from a global network of contributing weather stations.  The number of contributing stations has risen from about 800 to about 2500 thus far.  The network is global, concentrated in the US, Europe and Australia.  Most stations send accompanying met data.  Links to the archive can be found at http://www.wxqa.com/lum_search.htm.  A data report prepared at the six-year anniversary of the archive is at http://www.wxqa.com/lum_search.htm.
 
 This repo presents a usable routine for parsing that data.  
 The number of contributing stations has risen from about 800 to about 2500 thus far.  The network is global, concentrated in the US, Europe and Australia.  Most stations send accompanying met data.  Data sharing protocols indicate that the solar radiation sensor in use should be given within the body of the report.  In practice the sensors are not always named.  From data available it appears the Davis sensors predominate, but that may be an appearance due simply to the fact that the Davis sensors tend to ship with software that names the sensor.

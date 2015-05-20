@@ -265,10 +265,12 @@ parseinsolcwop <- function(filedate) {
 # RH Relative humidity [%].
 # tempK Air temperature [K].
 
+# In the below note that sunpos is a two-element vector:  sun azimuth angle, sun zenith angle.
+
   outtable<-data.frame(report,stationname,thisdate, datatimes,dateflag,z,latitude,latsign,longitude,
                        lonsign,winddir,windknots,gust,temp,
                        rainfallhour,rainfall24h,rainfalltoday,relativehumidity,baropressure,
-                       lrec,lfin,lcharerr,tech,cwopJD,cwopSunpos,cwopZenith,
+                       lrec,lfin,lcharerr,tech,cwopJD,cwopSunpos,
                        cwopInsolSum90,
                        cwopTau90,cwopDiffuse90,
                        cwopDaylength,cwopDec,cwopEqtime,cwopR,hite)

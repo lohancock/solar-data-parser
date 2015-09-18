@@ -1,4 +1,8 @@
-parseinsolcwop <- function(filedate) {
+parsecwopinsolc <- function(filedate) {
+
+  # note that the c in the name of the routine refers to the correction flagged below,
+  # which straightens out the use of zenith angle rahter than altitude.
+  # My approximation of R uses altitude; Corripio's insol computes zenith angle.
 
   # Read data and prepare name of output file  
   
@@ -7,7 +11,7 @@ parseinsolcwop <- function(filedate) {
   
   # Read in the list of lats, lons, and looked-up elevation.
   
-  llename<-paste("d:/0parseinsolcwop/latlonelevation.txt",sep="")
+  llename<-paste("C:/Users/L/Documents/solardataparser/latlonelevation.txt",sep="")
   lle<-read.table(llename,sep="\t",colClasses="numeric",skip=1)
   latlonelev<-data.frame(lat=lle[,1],lon=lle[,2],elev=lle[,3])
     
@@ -16,7 +20,11 @@ parseinsolcwop <- function(filedate) {
   report<-unique(mydata)
   report<-iconv(report,to="UTF-8",sub="qzt")
   report <- gsub("[^[:print:]]","qzt",report)
-  report<-unique(mydata)
+  report<-gsub("\t","qzt",report)
+  
+  
+# Next comes another error fix:  this is why bad lines were getting through.
+  report<-unique(report)
     
   # Prepare the date of the archive and the date of the day before, as strings and as dates.
   
@@ -116,8 +124,19 @@ parseinsolcwop <- function(filedate) {
   temp<-as.numeric(tparts[,4])
   temp<-ifelse(tparts[,3]=="-",temp*-1,temp)  
 
+# Added the following to set out of bounds values of temp to NA, because
+# when insol encounters them it halts execution.
+
+  badT<-which(-50>temp | temp>100)
+  is.na(temp[badT])<-TRUE
+
   temp3types<-convert_T(temp,"F")
   tempK<-temp3types[,1]
+
+# HERE is where to put the correction such that unphysical values of tempK are set to NULL or something
+# so insol doesn't try to use them.  So far as I know (a/o June 1, 2015), the problem occurs only
+# on 20130128 and a few days just after that.
+
   
   rpat<-"(r)([0-9]{3})([a-z A-Z]){1}"
   rparts<-str_match(report,rpat)
@@ -213,15 +232,29 @@ parseinsolcwop <- function(filedate) {
   cwopTransitSunpos<-sunpos(cwopTransitSunv)
   cwopTransitZenith<-cwopTransitSunpos[,2]
 
+# NOTE - Below is the edit which makes this parsecwopinsolc rather than parsecwopinsol.
+# The need concerns fact hat the zenith angle at transit (Corripio) is zero when sun is at zenith, 
+# while my formula uses solar altitude, which is zero when sun is at the horizon.  
+# So I have added a line to compute altitude, and rewritten R to use that, not zenith angle.
+
+  cwopTransitSolarAltitude=90-cwopTransitZenith;
+
 # And at last, I would use the value for zenith angle of sun at transit, to compute R.
 
   maxRadius<-(-1)*6.378/sin(radians(cwopDec)) 
-  cwopR<-maxRadius*cos(radians(cwopTransitZenith)) 
+  cwopR<-maxRadius*cos(radians(cwopTransitSolarAltitude)) 
+
+# The above produces values of R less than the radius of the Earth.
+# These however correspond to latitudes in summer.
+# I thought of deleting these but decided against.
+
 
 # For elevation make a vector of looked-up values
 # note this produces some negative values - haven't checked why but maybe
-# it is because some stations are aboard and the DEM is reporting
-# bathymetry.
+# it is because some stations are reporting positions in midocean and the DEM is reporting
+# bathymetry.  In these cases I will check but probably the coords are wrong.
+# Let us recall the stations sited at zero zero, which is Gulf of Guinea, which has a DART
+# station but I don't think that is sending L to CWOP.
 
    
   rlatitude<-round(latitude,3)
@@ -265,17 +298,16 @@ parseinsolcwop <- function(filedate) {
 # RH Relative humidity [%].
 # tempK Air temperature [K].
 
-# In the below note that sunpos is a two-element vector:  sun azimuth angle, sun zenith angle.
 
   outtable<-data.frame(report,stationname,thisdate, datatimes,dateflag,z,latitude,latsign,longitude,
                        lonsign,winddir,windknots,gust,temp,
                        rainfallhour,rainfall24h,rainfalltoday,relativehumidity,baropressure,
-                       lrec,lfin,lcharerr,tech,cwopJD,cwopSunpos,
+                       lrec,lfin,lcharerr,tech,cwopJD,cwopSunpos[,1],cwopZenith,
                        cwopInsolSum90,
                        cwopTau90,cwopDiffuse90,
                        cwopDaylength,cwopDec,cwopEqtime,cwopR,hite)
   
-  mydataout <- paste("d:/0parseinsolcwop/LPI",filedate,".txt",sep="")
+  mydataout <- paste("d:/0parseinsolcwop/LPIC",filedate,".txt",sep="")
   write.table(outtable,mydataout,sep="\t",row.names=FALSE,quote=FALSE,col.names=FALSE) 
 
  
@@ -287,4 +319,4 @@ parseinsolcwop <- function(filedate) {
 # meaning of the archive value versus the timing of the avering from which L is drawn.
 # 
 
-}  
+}

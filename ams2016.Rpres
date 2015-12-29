@@ -1,0 +1,599 @@
+The CWOP solar radiation data archive
+========================================================
+author: L. Hancock, R. Chadwick
+date: January 14, 2016
+
+
+```{r echo=FALSE, eval=FALSE}
+
+# INTRODUCTORY REMARKS
+
+# The raw data under discussion is linked at http://wxqa.com/lum_search.htm.
+# That data is parsed then stored in an Amazon Redshift database.
+# This presentation, written as an RStudio presentatin,
+# draws on the Redshift database.
+# Documentation on the parsing of the data and its upload to Redshift 
+# is provided as Annex A at the end of the markdown.
+# A data report to January 2015 is available at http://wxqa.com/solar_data_archive_fin.pdf. 
+# Clones of the Redshift database can be obtained from either author.
+```
+
+basic unit of the network
+======================================
+```{r echo=FALSE, fig.width=24, fig.height=15}
+# Install any packages below that you don't have already, and load.
+
+# install.packages("stringr")
+library (stringr)
+# install.packages("insol")
+library(insol)
+# install.packages("marelac")
+library(marelac)
+# install.packages("sqldf")
+library(sqldf)
+# install.packages("RODBC")
+ library(RODBC)
+#install.packages("dplyr")
+library(dplyr)
+# install.packages("lubridate")
+library("lubridate")
+#install.packages("tidyr")
+library(tidyr)
+#install.packages("ggplot2")
+library(ggplot2)
+# install.packages("RPostgreSQL")
+library(RPostgreSQL)
+# install.packages ("reshape")
+library(reshape)
+# install.packages("broom")
+library(broom)
+# install.packages("rworldmap")
+library(rworldmap)
+# install.packages("ggmap")
+library(ggmap)
+library (magrittr)
+
+# Link to the database and give a local name to the table.
+
+cwop_db<-src_postgres(host='my-cluster-cwop-solar.cix687k0xvpq.us-west-2.redshift.amazonaws.com', port='5439', dbname='dev',
+                      user='lohancock', password='R0samystica0')
+cwoparchive <- tbl(cwop_db, "cwoparchive")
+millionpoints <- tbl(cwop_db, "millionpoints")
+
+```
+![EW2020](ew2020.png)
+
+***
+  
+  EW2020>011245z 3849.62N/07647.89W_171/ 000g000t025 r000p000P000 h69b10235 L016.DsIP-V  | 
+  ------------- | -------------
+  Station EW2020 on the 1st of the month, 12:45Z, latitude 38.827N longitude 76.7982W, wind direction 171 degrees clockwise from north, wind speed 0 knots, wind gust=0 over the archive period, temperature=25F, no rainfall in the last hour or 24 hours or today, relative humidity 69%, barometric pressure 1023.5, solar radiation 16 W/m. The station is DsIP-VP. |
+  
+
+
+network dimensions
+=======================================================
+```{r echo=FALSE, fig.width=24, fig.height=15}
+
+# group by archivedate, then select stationname, then choose only distinct, then count them.
+
+n_stations<-cwoparchive %>%
+  group_by (archivedate) %>%
+  select(stationname) %>%
+  distinct()%>%
+  summarise(daily_stations=n())
+n_stations<-collect(n_stations)
+n_stations_df<-data.frame(n_stations)
+
+p<-ggplot(n_stations_df,aes(archivedate,daily_stations))
+p2<-p+geom_point()
+p2+theme(axis.text=element_text(size=60),
+        axis.title=element_text(size=10),
+        plot.title=element_text(size=60))+xlab("")+ylab("")+ggtitle("number of stations")
+
+```
+
+```{r echo=FALSE, fig.width=24, fig.height=12}
+
+# Make a station map
+# select max(archivedate) from cwoparchive.
+
+latest<-cwoparchive %>%
+  select(archivedate) %>%
+  summarise(maxdate=max(archivedate))
+latest_df<-data.frame(latest)
+displaydate<-latest_df$maxdate
+
+
+# select distinct latitude,longitude from cwoparchive where archivedate='2015-06-06' order by latitude;
+
+stations<-cwoparchive %>%
+  filter(archivedate==displaydate) %>%
+  select(latitude,longitude) %>%
+  distinct()
+stations<-collect(stations)
+stations_df<-data.frame(stations)
+
+# plot the map
+
+stationmap<-getMap(resolution="low")
+plot(stationmap,xlim=c(-180,180),ylim=c(-80,80),asp=1)
+points(stations$longitude, stations$latitude, col = "red", pch=19, cex = 1.5)
+
+```
+***
+
+```{r echo=FALSE, fig.width=24, fig.height=15}
+# SELECT stationname, COUNT (stationname) FROM public.cwop20150120 GROUP BY stationname;
+n_reports <- cwoparchive %>%
+  filter(archivedate=='2015-03-31') %>%
+  group_by (stationname) %>%
+  summarise (daily_station_n=n())
+n_reports <- collect(n_reports)
+n_reports_df<-data.frame(n_reports)
+
+preports<-ggplot(n_reports_df,aes(720/daily_station_n))
+preports+geom_histogram(binwidth=1)+xlim(0,60)+xlab("Reporting interval in minutes")+ggtitle("March 31, 2015 - Those reporting once/hour or more")+ylab("Number of stations")+theme(axis.text=element_text(size=60),
+        axis.title=element_text(size=10),
+        plot.title=element_text(size=60))+xlab("")+ylab("")+ggtitle("distribution of reporting intervals in minutes")
+```
+   
+
+```{r echo=FALSE, fig.width=24, fig.height=15}
+
+# group by archivedate, then count them.
+
+n_obs<-cwoparchive %>%
+  group_by (archivedate) %>%
+  summarise(daily_obs=n())
+n_obs<-collect(n_obs)
+n_obs_df<-data.frame(n_obs)
+
+pp<-ggplot(n_obs_df,aes(archivedate,daily_obs))
+pp2<-pp+geom_point()
+pp2+theme(axis.text=element_text(size=60),
+        axis.title=element_text(size=10),
+        plot.title=element_text(size=60))+xlab("")+ylab("")+ggtitle("number of reports each day")
+
+```
+
+
+
+the archive of parsed data
+====================================================
+```{r echo=FALSE}
+
+latest<-cwoparchive %>%
+  select(archivedate) %>%
+  summarise(maxdate=max(archivedate))
+latest_df<-data.frame(latest)
+displaydate<-latest_df$maxdate
+
+````
+
+
+*On `r paste(displaydate)`*
+  
+**the total number of observations in the archive:**
+
+```{r echo=FALSE}
+
+latest<-cwoparchive %>%
+  summarise(totaln=n()) %>%
+  collect() %>%
+  data.frame ()
+total_n<-latest$totaln
+
+````
+
+*`r paste(total_n)`*
+
+**The number of stations that have ever reported:**
+```{r echo=FALSE}
+
+nstations <-cwoparchive %>%
+  summarise(a=n_distinct(stationname)) %>%
+  collect() %>%
+  data.frame()
+totalstatns <- nstations$a
+```
+*`r paste(totalstatns)`*
+
+
+**The number of station-days:**
+```{r echo=FALSE}
+
+nstationdays <-cwoparchive %>%  
+  select(stationname,archivedate) %>%
+  distinct() %>%
+  summarise(count=n()) %>%
+  collect() %>% 
+  data.frame ()
+totstatndays<- nstationdays$count
+```
+*`r paste(totstatndays)`*
+
+
+clear sky model added to archive 
+============================================
+```{r echo=FALSE}
+  station <- "SRCTBL"  
+  thisdataday_df<-cwoparchive %>%
+    filter(stationname==station,archivedate > '2015-06-07', archivedate < '2015-06-15') %>%
+    select(z,linterpreted,insol90,sunzenithangle,tau90) %>% 
+    collect() %>%
+    data.frame()
+  p<-ggplot(thisdataday_df,aes(z,linterpreted))
+  lmodel<-geom_point(aes(y=insol90),colour="yellow")
+  lobs<-geom_point(colour="blue")
+  plabs<-labs(x="Date", y="L in W per m2")
+  p+lmodel+lobs+ ggtitle(station)+plabs+xlab("2015")+ylab("")+ylim(0,1250)
+
+```
+
+
+***    
+```{r echo=FALSE}
+  station <- "SRCTBL"  
+  thisdata_df<-cwoparchive %>%
+    filter(stationname==station) %>%
+    select(z,linterpreted,insol90,sunzenithangle,tau90) %>%
+    collect() %>%
+    data.frame()
+  p<-ggplot(thisdata_df,aes(z,linterpreted))
+  lmodel<-geom_point(aes(y=insol90),colour="yellow",size=1,alpha=1/40)
+  lobs<-geom_point(colour="blue",size=1,alpha=1/40)
+  plabs<-labs(x="", y="L in W per m2")
+  p+lmodel+lobs+ plabs+ylim(0,1500)+ggtitle(station) +ylim(0,1250) 
+
+```
+
+archived time series with data and model
+=====================================
+```{r echo=FALSE, fig.width=24, fig.height=15}
+  station <- "OH6GKW"  
+  viewstation<-cwoparchive %>%
+    filter(stationname==station) %>%
+    select(z,linterpreted,insol90,sunzenithangle,tau90) 
+ #   summarise(count=n(),avgtau=mean(abs(tau90))) %>%
+ #   arrange()
+  thisdata<-collect(viewstation)
+  thisdata_df<-data.frame(thisdata)
+  p<-ggplot(thisdata,aes(z,linterpreted))
+  lmodel<-geom_point(aes(y=insol90),size=1,colour="yellow",alpha=1/2)
+  lobs<-geom_point(size=1,colour="blue",alpha=1/2)
+  plabs<-labs(x="Date", y="L in W per m2")
+  p+lmodel+lobs+ ggtitle("OH6GKW at 63N") +plabs+theme(axis.text=element_text(size=60),
+        axis.title=element_text(size=10))+ylim(0,1500)
+
+```
+```{r echo=FALSE, fig.width=24, fig.height=15}
+  station <- "CW0343"  
+  thisdata<-cwoparchive %>%
+    filter(stationname==station) %>%
+    select(z,linterpreted,insol90,sunzenithangle,tau90) %>%
+    collect () %>%
+    data.frame()
+  p<-ggplot(thisdata,aes(z,linterpreted))
+  lmodel<-geom_point(aes(y=insol90),size=1,colour="yellow",alpha=1/2)
+  lobs<-geom_point(size=1,colour="blue",alpha=1/2)
+  plabs<-labs(x="Date", y="L in W per m2")
+  p+lmodel+lobs+ ggtitle("CW0343 17 S near Cairns") +plabs+theme(axis.text=element_text(size=60),
+        axis.title=element_text(size=10))+ylim(0,1500)
+
+```
+***
+```{r echo=FALSE, fig.width=24, fig.height=15}
+  station <- "CW4859"  
+  thisdata<-cwoparchive %>%
+    filter(stationname==station) %>%
+    select(z,linterpreted,insol90,sunzenithangle,tau90) %>%
+    collect () %>%
+    data.frame()
+  p<-ggplot(thisdata,aes(z,linterpreted))
+  lmodel<-geom_point(aes(y=insol90),size=1,colour="yellow",alpha=1/2)
+  lobs<-geom_point(size=1,colour="blue",alpha=1/2)
+  plabs<-labs(x="Date", y="L in W per m2")
+  p+lmodel+lobs+ ggtitle("CW0343 near Philadelphia") +plabs+theme(axis.text=element_text(size=60),
+        axis.title=element_text(size=10))+ylim(0,1500)
+
+```
+```{r echo=FALSE, fig.width=24, fig.height=15}
+  station <- "SRCGWN"  
+  thisdata<-cwoparchive %>%
+    filter(stationname==station) %>%
+    select(z,linterpreted,insol90,sunzenithangle,tau90) %>%
+    collect () %>%
+    data.frame()
+  p<-ggplot(thisdata,aes(z,linterpreted))
+  lmodel<-geom_point(aes(y=insol90),size=1,colour="yellow",alpha=1/2)
+  lobs<-geom_point(size=1,colour="blue",alpha=1/2)
+  plabs<-labs(x="Date", y="L in W per m2")
+  p+lmodel+lobs+ ggtitle("SRCDBL") +plabs+theme(axis.text=element_text(size=60),
+        axis.title=element_text(size=10))+ylim(0,1500)
+
+```
+
+
+attenuation added to archive
+============================================
+```{r echo=FALSE}
+  station <- "SRCTBL"  
+  thisdataday_df<-cwoparchive %>%
+    filter(stationname==station,archivedate > '2015-06-07', archivedate < '2015-06-15') %>%
+    select(z,linterpreted,insol90,sunzenithangle,tau90) %>% 
+    collect() %>%
+    data.frame()
+  p<-ggplot(thisdataday_df,aes(z,linterpreted))
+  lmodel<-geom_point(aes(y=insol90),colour="yellow")
+  lobs<-geom_point(colour="blue")
+  plabs<-labs(x="Date", y="L in W per m2")
+  p+lmodel+lobs+ ggtitle("SRCTBL data") +plabs+xlab("2015")+ylab("")+ylim(0,1250)
+
+```
+
+   
+***    
+```{r echo=FALSE}
+  station <- "SRCTBL"  
+  thisdataday_df<-cwoparchive %>%
+    filter(stationname==station,archivedate > '2015-01-07', archivedate < '2015-01-15',sunzenithangle<90.) %>%
+    select(z,linterpreted,insol90,sunzenithangle,tau90) %>% 
+    collect() %>%
+    data.frame()
+  p<-ggplot(thisdataday_df,aes(z,tau90))
+  lobs<-geom_point(colour="red")
+  plabs<-labs(x="2016", y="Attenuation")
+  p+lobs+ ggtitle("SRCTBL attenuation")+plabs
+```  
+
+
+  $\mathsf {\tau \equiv -ln\left(\frac{L_{obs}}{L_{modeled}}\right)}$
+  
+
+attenuation used as site shading assessment
+=======================================
+```{r echo=FALSE, fig.width=24, fig.height=15}
+  station<-"CW4859"
+  station_df <-cwoparchive %>%
+  filter(stationname==station,sunzenithangle<85.) %>%
+  select(z,linterpreted,insol90,sunzenithangle,sunazimuthangle,tau90,occultingeqr) %>%
+  collect() %>%
+  data.frame ()
+  p<-ggplot(station_df,aes(y=90-sunzenithangle,x=sunazimuthangle))
+  q<-p+geom_point(aes(colour=tau90),size=3,alpha=1/8)+ylim(0,90)+ggtitle(station)+scale_colour_gradient(limits=c(0,4), low="white", high="black", space="Lab")
+  q
+
+```
+
+   
+
+```{r echo=FALSE, fig.width=24, fig.height=15}
+  station<-"CW4859"
+  station_df <-cwoparchive %>%
+  filter(stationname==station,sunzenithangle<85.) %>%
+  select(z,linterpreted,insol90,sunzenithangle,sunazimuthangle,tau90,occultingeqr) %>%
+  collect() %>%
+  data.frame ()
+#  p<-ggplot(station_df,aes(tau90))
+#  p+geom_histogram(binwidth=.01)+ggtitle(station)+xlim(-1,5)
+  azsector <- round_any (station_df$sunazimuthangle/45,1,floor)
+  azsector <- (-1)*azsector
+  station_df <- mutate (station_df, azsector)
+  psky<-ggplot(station_df,aes(sunazimuthangle,90-sunzenithangle))
+  psky+geom_point(aes(colour=azsector),size=2)+ylim(0,90)
+
+```
+
+
+***   
+![cwphila](CW4859 small.png)
+
+   
+```{r echo=FALSE, fig.width=24, fig.height=15}
+  
+p<-ggplot(station_df,aes(tau90))
+q <- p+geom_histogram(binwidth=.01)+ggtitle(station)+xlim(-1,5)
+q+facet_grid(~ azsector)
+
+  
+```  
+
+histogram of attenuation
+=================================
+````{r echo=FALSE, fig.width=24, fig.height=15}
+histodata <- millionpoints %>%
+select (tau90) %>%
+filter(sunzenithangle<90) %>%
+collect() %>%
+data.frame()
+p<-ggplot(histodata,aes(tau90))
+p+geom_histogram(binwidth=.01)+ggtitle("a million random points")+xlim(-1,4)+xlab("attenuation in bins by .01")
+```
+
+
+test for a dusty earth ring
+================================
+research finding | consequence 
+------------- | -------------
+densest planetary rings are all in equatorial plane | expect annual cycle of shading
+persistent ring replenishment is a big problem without a Moon to Earth mass exchange ![accretion disk](mod3_q9_1-fromhubblesiteorg.jpg)| so expect an accretion disk, "second ring," and a 20 year cycle of shading
+NASA looked for eq ring but did not find it | only a fuzzy ring is possible
+Haystack and debris programs haven't noticed it | they'd miss silt and sand at low angles
+picking sand off space shuttle didn't notice it | familiar material would not draw attention - silt and sand would work
+material would fall to magnetic poles | we must identify cold spots near the magnetic poles - done:  Labrador Sea (is it sandy down below?)
+
+<iframe  title="YouTube video player" width="480" height="390" src="http://www.youtube.com/v/TQisD91tGo4?html5=1" frameborder="0" allowfullscreen></iframe>
+
+
+test for annual cycle of shading
+==================================
+
+add to database:  R(occulting)
+
+$$R_\varnothing =sin(ZA) * \frac {R_\oplus }{sin (\delta)} $$
+  
+  
+where 
+  
+$R_\varnothing \equiv$ radius of the ring;
+
+ZA $\equiv$ zenith angle of sun;
+  
+$\delta \equiv$ solar declination angle.
+
+is there an annual cycle of shading
+=========================================
+```{r echo=FALSE}
+boxdata <- cwoparchive %>%
+filter(tau90>-0.5,0.5>tau90,175<sunazimuthangle,185>sunazimuthangle)%>%
+select(tau90,occultingeqr,stationname,z,sunazimuthangle,sunzenithangle) %>%
+collect()%>%
+data.frame
+qplot(occultingeqr,tau90,data=boxdata,geom="boxplot",group=round_any(occultingeqr,0.25,floor),xlim=c(10,25))
+
+```
+
+R(occulting) and day of year for a few locations
+===============================
+
+
+
+
+
+R(occulting) sky positions for a few locations
+==============================================
+
+
+
+
+further work
+=======================================
+time series of rocculting as function of doy for several latitudes
+the sky version of ditto
+
+further work is fix up the data
+
+
+a test does exist - Milky Way
+
+
+
+
+thank you
+=======================
+
+
+
+acknowledgments and links
+=======================================================
+CWOP Volunteers
+
+Russ Chadwick, Steve Dimse, Philip Gladstone,
+Ted Lum, Davis Instruments, Weather Display
+
+Postgres community
+Aginity
+R Community, RStudio Community 
+Javier Corripio (insol)
+Hadley Wickham (ggplot, dplyr, stringr, inter alia)
+Coursera and JHU (R)
+Celestia Community
+Amazon Web Services
+Stack Overflow community
+
+
+
+annex:  geometry of  Rocculting
+===============
+![sin law](sinlaw.png)
+
+
+annex:  variables in the archive
+=====================================
+each observation comprises 34 variables including:
+
+**parsed data: 23 variables**
+original report, station name, archive date, date/time as extracted from report, dateflag to highlight nominal dates out of range, calculated date and time z, latitude, N/S, longitude, E/W, wind direction, wind speed, wind gust, temperature (F), rain this hour, rain last 24 hours, rain today, relative humidity, barometric pressure,  solar radiation measurement as given in report, solar radiation as interpreted, flag for number of characters in report, tech suffix providing some description of hardware and software
+**from model: 8 variables**
+julian day,sun azimuth angle, sun zenith angle, modeled solar insolation, diffuse component of modeled insolation, day length, solar declination, equation of time
+**from lookup:**  station height
+**computed** attenuation
+**computed**  Roccultingeqr
+
+annex - software issue - L>999
+===================================
+
+
+
+
+
+annex - alternative sampling strategy
+======================================
+
+
+
+```{r echo=FALSE, eval=FALSE}
+
+# ANNEX A
+
+# (1) This presentation draws on an Amazon Redshift database populated with one table, cwoparchive. 
+# (2) The Redshift database was initialized with a blank table using DDL below entitled "THE DDL."
+# (3) Raw data was obtained from the CWOP Solar Radiation Data Archive, linked at:  http://wxqa.com/lum_search.htm.
+# (4) These daily archives were parsed, see https://github.com/lohancock/solar-data-parser. 
+# (5) Resulting files were uploaded from hard drive to an S3 bucket entitled cwop/lpic.
+# (6) and from there to the prepared Redshift table - see "SQL FOR THE UPLOAD" for one day's example.
+
+# "THE DDL"
+
+select CREATE TABLE public.cwoparchive
+(
+  report VARCHAR(250) NOT NULL ENCODE lzo,
+  stationname VARCHAR(20) ENCODE lzo,
+	archivedate DATE NOT NULL ENCODE runlength,
+	datatimes VARCHAR(10) ENCODE lzo,
+	dateflag SMALLINT ENCODE runlength,
+	z TIMESTAMP,
+	latitude REAL ENCODE runlength,
+	latsign CHAR(1),
+	longitude REAL ENCODE runlength,
+	lonsign CHAR(1),
+	winddir REAL ENCODE bytedict,
+	windknots REAL ENCODE bytedict,
+	gust REAL ENCODE bytedict,
+	tempk REAL ENCODE bytedict,
+	rainfallhour REAL ENCODE runlength,
+	rainfall24h REAL ENCODE runlength,
+	rainfalltoday REAL ENCODE runlength,
+	relativehumidity REAL ENCODE bytedict,
+	baropressure REAL ENCODE bytedict,
+	lrecord VARCHAR(20) ENCODE lzo,
+	linterpreted INTEGER ENCODE delta,
+	lcharerr BOOLEAN,
+	tech VARCHAR(250) ENCODE lzo,
+	jd REAL ENCODE runlength,
+	sunazimuthangle REAL,
+	sunzenithangle REAL,
+	insol90 REAL,
+	tau90 REAL,
+	diffuse90 REAL,
+	daylength REAL ENCODE runlength,
+	solardec REAL ENCODE bytedict,
+	eqtime REAL ENCODE bytedict,
+	occultingeqr REAL,
+	hite REAL ENCODE runlength
+)
+DISTSTYLE EVEN;
+
+ALTER TABLE public.cwoparchive
+ADD CONSTRAINT cwoparchive_pkey
+PRIMARY KEY (report, archivedate);
+
+
+# "SQL FOR THE UPLOAD" - Here is an example - data from May 18, 2010.
+COPY cwoparchive FROM 's3://cwop/lpic/LPIC20100518.txt' CREDENTIALS 'aws_access_key_id=myaccesskey;aws_secret_access_key=mysecretaccesskey' NULL 'NA' DELIMITER '\t' ACCEPTINVCHARS AS '^';
+
+# The upload is then undertaken for all other dates.
+
+```
+

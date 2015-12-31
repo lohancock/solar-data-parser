@@ -4,6 +4,12 @@ author: L. Hancock, R. Chadwick
 date: January 14, 2016
 
 
+
+18th Symposium on on Meteorological Observation and Instrumentation - Session 12 - Innovative Measurements        
+   
+AMS New Orleans 2016 
+
+
 ```{r echo=FALSE, eval=FALSE}
 
 # INTRODUCTORY REMARKS
@@ -35,8 +41,10 @@ library(sqldf)
  library(RODBC)
 #install.packages("dplyr")
 library(dplyr)
+#install.packages("scales")
+library(scales)
 # install.packages("lubridate")
-library("lubridate")
+library(lubridate)
 #install.packages("tidyr")
 library(tidyr)
 #install.packages("ggplot2")
@@ -52,6 +60,7 @@ library(rworldmap)
 # install.packages("ggmap")
 library(ggmap)
 library (magrittr)
+library(grid)
 
 # Link to the database and give a local name to the table.
 
@@ -59,16 +68,18 @@ cwop_db<-src_postgres(host='my-cluster-cwop-solar.cix687k0xvpq.us-west-2.redshif
                       user='lohancock', password='R0samystica0')
 cwoparchive <- tbl(cwop_db, "cwoparchive")
 millionpoints <- tbl(cwop_db, "millionpoints")
+tenmillionpoints <- tbl(cwop_db, "tenmillionpoints")
+
 
 ```
 ![EW2020](ew2020.png)
 
 ***
+    
   
   EW2020>011245z 3849.62N/07647.89W_171/ 000g000t025 r000p000P000 h69b10235 L016.DsIP-V  | 
   ------------- | -------------
-  Station EW2020 on the 1st of the month, 12:45Z, latitude 38.827N longitude 76.7982W, wind direction 171 degrees clockwise from north, wind speed 0 knots, wind gust=0 over the archive period, temperature=25F, no rainfall in the last hour or 24 hours or today, relative humidity 69%, barometric pressure 1023.5, solar radiation 16 W/m. The station is DsIP-VP. |
-  
+
 
 
 network dimensions
@@ -170,11 +181,8 @@ latest_df<-data.frame(latest)
 displaydate<-latest_df$maxdate
 
 ````
-
-
-*On `r paste(displaydate)`*
   
-**the total number of observations in the archive:**
+**On `r paste(displaydate)` the total number of observations in the archive:**
 
 ```{r echo=FALSE}
 
@@ -186,7 +194,7 @@ total_n<-latest$totaln
 
 ````
 
-*`r paste(total_n)`*
+*`r paste(comma_format()(total_n))`*
 
 **The number of stations that have ever reported:**
 ```{r echo=FALSE}
@@ -197,7 +205,7 @@ nstations <-cwoparchive %>%
   data.frame()
 totalstatns <- nstations$a
 ```
-*`r paste(totalstatns)`*
+*`r paste(comma_format()(totalstatns))`*
 
 
 **The number of station-days:**
@@ -211,7 +219,9 @@ nstationdays <-cwoparchive %>%
   data.frame ()
 totstatndays<- nstationdays$count
 ```
-*`r paste(totstatndays)`*
+*`r paste(comma_format()(totstatndays))`*
+
+
 
 
 clear sky model added to archive 
@@ -255,20 +265,18 @@ archived time series with data and model
   viewstation<-cwoparchive %>%
     filter(stationname==station) %>%
     select(z,linterpreted,insol90,sunzenithangle,tau90) 
- #   summarise(count=n(),avgtau=mean(abs(tau90))) %>%
- #   arrange()
   thisdata<-collect(viewstation)
   thisdata_df<-data.frame(thisdata)
   p<-ggplot(thisdata,aes(z,linterpreted))
   lmodel<-geom_point(aes(y=insol90),size=1,colour="yellow",alpha=1/2)
   lobs<-geom_point(size=1,colour="blue",alpha=1/2)
   plabs<-labs(x="Date", y="L in W per m2")
-  p+lmodel+lobs+ ggtitle("OH6GKW at 63N") +plabs+theme(axis.text=element_text(size=60),
+  p+lmodel+lobs+ ggtitle(station) +plabs+theme(axis.text=element_text(size=60),
         axis.title=element_text(size=10))+ylim(0,1500)
 
 ```
 ```{r echo=FALSE, fig.width=24, fig.height=15}
-  station <- "CW0343"  
+  station <- "DW3740"  
   thisdata<-cwoparchive %>%
     filter(stationname==station) %>%
     select(z,linterpreted,insol90,sunzenithangle,tau90) %>%
@@ -278,13 +286,13 @@ archived time series with data and model
   lmodel<-geom_point(aes(y=insol90),size=1,colour="yellow",alpha=1/2)
   lobs<-geom_point(size=1,colour="blue",alpha=1/2)
   plabs<-labs(x="Date", y="L in W per m2")
-  p+lmodel+lobs+ ggtitle("CW0343 17 S near Cairns") +plabs+theme(axis.text=element_text(size=60),
+  p+lmodel+lobs+ ggtitle(station) +plabs+theme(axis.text=element_text(size=60),
         axis.title=element_text(size=10))+ylim(0,1500)
 
 ```
 ***
 ```{r echo=FALSE, fig.width=24, fig.height=15}
-  station <- "CW4859"  
+  station <- "ZL1TQN"  
   thisdata<-cwoparchive %>%
     filter(stationname==station) %>%
     select(z,linterpreted,insol90,sunzenithangle,tau90) %>%
@@ -294,12 +302,12 @@ archived time series with data and model
   lmodel<-geom_point(aes(y=insol90),size=1,colour="yellow",alpha=1/2)
   lobs<-geom_point(size=1,colour="blue",alpha=1/2)
   plabs<-labs(x="Date", y="L in W per m2")
-  p+lmodel+lobs+ ggtitle("CW0343 near Philadelphia") +plabs+theme(axis.text=element_text(size=60),
+  p+lmodel+lobs+ ggtitle(station) +plabs+theme(axis.text=element_text(size=60),
         axis.title=element_text(size=10))+ylim(0,1500)
 
 ```
 ```{r echo=FALSE, fig.width=24, fig.height=15}
-  station <- "SRCGWN"  
+  station <- "FSUMET"  
   thisdata<-cwoparchive %>%
     filter(stationname==station) %>%
     select(z,linterpreted,insol90,sunzenithangle,tau90) %>%
@@ -309,7 +317,7 @@ archived time series with data and model
   lmodel<-geom_point(aes(y=insol90),size=1,colour="yellow",alpha=1/2)
   lobs<-geom_point(size=1,colour="blue",alpha=1/2)
   plabs<-labs(x="Date", y="L in W per m2")
-  p+lmodel+lobs+ ggtitle("SRCDBL") +plabs+theme(axis.text=element_text(size=60),
+  p+lmodel+lobs+ ggtitle(station) +plabs+theme(axis.text=element_text(size=60),
         axis.title=element_text(size=10))+ylim(0,1500)
 
 ```
@@ -351,12 +359,13 @@ attenuation added to archive
   $\mathsf {\tau \equiv -ln\left(\frac{L_{obs}}{L_{modeled}}\right)}$
   
 
+
 attenuation used as site shading assessment
 =======================================
 ```{r echo=FALSE, fig.width=24, fig.height=15}
   station<-"CW4859"
   station_df <-cwoparchive %>%
-  filter(stationname==station,sunzenithangle<85.) %>%
+  filter(stationname==station,sunzenithangle<85.,insol90<1000) %>%
   select(z,linterpreted,insol90,sunzenithangle,sunazimuthangle,tau90,occultingeqr) %>%
   collect() %>%
   data.frame ()
@@ -371,7 +380,7 @@ attenuation used as site shading assessment
 ```{r echo=FALSE, fig.width=24, fig.height=15}
   station<-"CW4859"
   station_df <-cwoparchive %>%
-  filter(stationname==station,sunzenithangle<85.) %>%
+  filter(stationname==station,sunzenithangle<85.,insol90<1000) %>%
   select(z,linterpreted,insol90,sunzenithangle,sunazimuthangle,tau90,occultingeqr) %>%
   collect() %>%
   data.frame ()
@@ -399,6 +408,59 @@ q+facet_grid(~ azsector)
   
 ```  
 
+four skies from the archive
+================
+```{r echo=FALSE, fig.width=24, fig.height=15}
+  station<-"CW4859"
+  station_df <-cwoparchive %>%
+  filter(stationname==station,sunzenithangle<85.) %>%
+  select(z,linterpreted,insol90,sunzenithangle,sunazimuthangle,tau90,occultingeqr) %>%
+  collect() %>%
+  data.frame ()
+  p<-ggplot(station_df,aes(y=90-sunzenithangle,x=sunazimuthangle))
+  q<-p+geom_point(aes(colour=tau90),size=3,alpha=1/8)+ylim(0,90)+ggtitle(station)+scale_colour_gradient(limits=c(0,4), low="white", high="black", space="Lab")
+  q
+
+```
+```{r echo=FALSE, fig.width=24, fig.height=15}
+  station<-"DW3740"
+  station_df <-cwoparchive %>%
+  filter(stationname==station,sunzenithangle<85.) %>%
+  select(z,linterpreted,insol90,sunzenithangle,sunazimuthangle,tau90,occultingeqr) %>%
+  collect() %>%
+  data.frame ()
+  p<-ggplot(station_df,aes(y=90-sunzenithangle,x=sunazimuthangle))
+  q<-p+geom_point(aes(colour=tau90),size=3,alpha=1/8)+ylim(0,90)+ggtitle(station)+scale_colour_gradient(limits=c(0,4), low="white", high="black", space="Lab")
+  q
+
+```
+
+***
+```{r echo=FALSE, fig.width=24, fig.height=15}
+  station<-"FSUMET"
+  station_df <-cwoparchive %>%
+  filter(stationname==station,sunzenithangle<85.) %>%
+  select(z,linterpreted,insol90,sunzenithangle,sunazimuthangle,tau90,occultingeqr) %>%
+  collect() %>%
+  data.frame ()
+  p<-ggplot(station_df,aes(y=90-sunzenithangle,x=sunazimuthangle))
+  q<-p+geom_point(aes(colour=tau90),size=3,alpha=1/8)+ylim(0,90)+ggtitle(station)+scale_colour_gradient(limits=c(0,4), low="white", high="black", space="Lab")
+  q
+
+```
+```{r echo=FALSE, fig.width=24, fig.height=15}
+  station<-"OH6GKW"
+  station_df <-cwoparchive %>%
+  filter(stationname==station,sunzenithangle<85.) %>%
+  select(z,linterpreted,insol90,sunzenithangle,sunazimuthangle,tau90,occultingeqr) %>%
+  collect() %>%
+  data.frame ()
+  p<-ggplot(station_df,aes(y=90-sunzenithangle,x=sunazimuthangle))
+  q<-p+geom_point(aes(colour=tau90),size=3,alpha=1/8)+ylim(0,90)+ggtitle(station)+scale_colour_gradient(limits=c(0,4), low="white", high="black", space="Lab")
+  q
+
+```
+
 histogram of attenuation
 =================================
 ````{r echo=FALSE, fig.width=24, fig.height=15}
@@ -412,37 +474,103 @@ p+geom_histogram(binwidth=.01)+ggtitle("a million random points")+xlim(-1,4)+xla
 ```
 
 
-test for a dusty earth ring
-================================
-research finding | consequence 
-------------- | -------------
-densest planetary rings are all in equatorial plane | expect annual cycle of shading
-persistent ring replenishment is a big problem without a Moon to Earth mass exchange ![accretion disk](mod3_q9_1-fromhubblesiteorg.jpg)| so expect an accretion disk, "second ring," and a 20 year cycle of shading
-NASA looked for eq ring but did not find it | only a fuzzy ring is possible
-Haystack and debris programs haven't noticed it | they'd miss silt and sand at low angles
-picking sand off space shuttle didn't notice it | familiar material would not draw attention - silt and sand would work
-material would fall to magnetic poles | we must identify cold spots near the magnetic poles - done:  Labrador Sea (is it sandy down below?)
-
-<iframe  title="YouTube video player" width="480" height="390" src="http://www.youtube.com/v/TQisD91tGo4?html5=1" frameborder="0" allowfullscreen></iframe>
+known limitations of the parsed data
+====================================
+- - Metadata sometimes has typos.  **Errors most affect tropics.**
+- Two different sampling strategies are in use.  **Effect on stats.**   
+- Archive intervals are not reported.  **Would affect glinting stats.**   
+- Sensors may tilt.  **Overbright nearer meridian - noon and winter?**      
+- Protocol for reporting L>999 is used inconsistently.  **Midsummer.**      
+- L values above 2000 are outside the range of most stations.  **Midsummer glinting.**       
 
 
-test for annual cycle of shading
+
+project: can there be a planetary ring
+==============================
+WHAT TO LOOK FOR:|    
+-------|--------
+equatorial orientation is usual |     
+therefore annual cycle  |   
+usually densest around 1.5-3 R(planet)  |       
+fuzzy structure for a rocky planet   |   
+composed of typical aeolian sediments |   
+
+REASONS TO NOT DO THIS: |    
+-------|--------
+**a ring would decay very rapidly**  |   
+**only the moon could make it persistent**  |       
+**but moon was long thought dead**  | 
+
+
+***
+<iframe  title="ring shades winter only" width="420" height="350" src="http://www.youtube.com/v/TQisD91tGo4?html5=1" frameborder="0" allowfullscreen></iframe>
+
+
+shading by a ring system? #1
+==================================
+**Requires a component of attenuation not dependent on airmass.**    
+Recall for clear skies, the Beer-Lambert attenuation law:   
+     
+$\tau=e^{-m(\tau_a + \tau_g + \tau_s)}$  
+    
+where all attenuation terms are proportional to airmass m:  aerosols, gases, Raman and Rayleigh scattering.  
+
+We require the existence of some attenuation that isn't dependent on m - for example, independent of zenith angle, or with a different dependence.
+
+
+attenuation as function of zenith angle 
+=================================
+```{r echo=FALSE, fig.width=24, fig.height=15}
+histodata <- tenmillionpoints %>%
+filter(sunzenithangle<22.5) %>%
+select (tau90) %>%
+collect() %>%
+data.frame()
+p<-ggplot(histodata,aes(tau90))
+p+geom_histogram(binwidth=.01)+xlim(-1,4)+xlab("attenuation in bins by .01")+annotate("text", x = 2, y = 2500, label = "Within fifteen degrees of zenith")+annotate("rect",xmin=0,xmax=.2,ymin=0,ymax=15000,alpha=.2)
+```
+```{r echo=FALSE, fig.width=24, fig.height=15}
+histodata <- tenmillionpoints %>%
+filter(sunzenithangle>45,sunzenithangle<67.5) %>%
+select (tau90) %>%
+collect() %>%
+data.frame()
+p<-ggplot(histodata,aes(tau90))
+p+geom_histogram(binwidth=.01)+xlim(-1,4)+xlab("attenuation in bins by .01")+annotate("text", x = 2, y = 2500, label = "From 30 to 45 degrees from zenith")+annotate("rect",xmin=0,xmax=.2,ymin=0,ymax=67000,alpha=.2)
+```
+***
+```{r echo=FALSE, fig.width=24, fig.height=15}
+histodata <- tenmillionpoints %>%
+filter(sunzenithangle>22.5,sunzenithangle<45) %>%
+select (tau90) %>%
+collect() %>%
+data.frame()
+p<-ggplot(histodata,aes(tau90))
+p+geom_histogram(binwidth=.01)+xlim(-1,4)+xlab("attenuation in bins by .01")+annotate("text", x = 2, y = 2500, label = "From 15 to 30 degrees from zenith")+annotate("rect",xmin=0,xmax=.2,ymin=0,ymax=67000,alpha=.2)
+```
+```{r echo=FALSE, fig.width=24, fig.height=15}
+histodata <- tenmillionpoints %>%
+filter(sunzenithangle<90,sunzenithangle>67.5) %>%
+select (tau90) %>%
+collect() %>%
+data.frame()
+p<-ggplot(histodata,aes(tau90))
+p+geom_histogram(binwidth=.01)+xlim(-1,4)+xlab("attenuation in bins by .01")+annotate("text", x = 2, y = 13000, label = "Within fifteen degrees of horizon")+annotate("rect",xmin=0,xmax=.2,ymin=0,ymax=22000,alpha=.2)
+```
+
+
+shading by a ring system? #2
 ==================================
 
-add to database:  R(occulting)
+**Requires a component of attenuation that is cyclic.**   The annual cycle of shading that would result from an equatorial ring occulting the sun could be summarized thus:  An observation at given latitude and yearday is attenuated by material at radius (see annex for diagram):   
+   
+$R_\varnothing =sin(ZA) * \frac {R_\oplus }{sin (\delta)}$    
+   
+and the dependence on R is "consistent" (a) over time and (b) over all latitudes at given time.
 
-$$R_\varnothing =sin(ZA) * \frac {R_\oplus }{sin (\delta)} $$
-  
-  
-where 
-  
-$R_\varnothing \equiv$ radius of the ring;
 
-ZA $\equiv$ zenith angle of sun;
-  
-$\delta \equiv$ solar declination angle.
 
-is there an annual cycle of shading
+attenuation as a function of attributed ring 
 =========================================
 ```{r echo=FALSE}
 boxdata <- cwoparchive %>%
@@ -453,85 +581,87 @@ data.frame
 qplot(occultingeqr,tau90,data=boxdata,geom="boxplot",group=round_any(occultingeqr,0.25,floor),xlim=c(10,25))
 
 ```
-
-R(occulting) and day of year for a few locations
-===============================
-
-
-
-
-
-R(occulting) sky positions for a few locations
-==============================================
+***   
+  
+- densest at about 16K km from center of Earth, about 2.5R(Earth), 
+- $\tau_{ring_{edge-on}} \approx$ 0.1 (taken as the anomaly above average value of $\tau$),  
+- $\tau_{ring} \approx$ 0.02 if the above is scaled by sin of ten degrees (i.e., half of 23.5).  
 
 
+conclusion of project
+===========================
 
-
-further work
-=======================================
-time series of rocculting as function of doy for several latitudes
-the sky version of ditto
-
-further work is fix up the data
-
-
-a test does exist - Milky Way
+**available data permit the interpretation Earth is shaded by ring in eq orientation**     
+-deepening the dark and cold of winter     
+-with a keyhole of brightness around  midwinter up to about 60N   
+-depositing dust into the atmosphere as ring decayed - ultra cold, possibly charged, advecting anomalous angular momentum   
+    
+**and if ring is shown by further tests to exist and be persistent**     
+-the Moon is replenishing it   
+-the Moon is geologically active       
+-Earth may lie in an accretion disk mediating Moon-Earth mass exchange    
+-imposing on climate the period of precession of lunar nodes (18.6 years)
+-sensitive to solar wind
 
 
 
+In closing...
+====================================
+    
+The CWOP Solar Radiation database is publicly available   
+-in raw form    
+-in parsed form
 
-thank you
-=======================
+Enjoy the new opportunities it provides - 
+
+Thank you for your attention.
 
 
-
-acknowledgments and links
+acknowledgments
 =======================================================
 CWOP Volunteers
-
-Russ Chadwick, Steve Dimse, Philip Gladstone,
-Ted Lum, Davis Instruments, Weather Display
-
-Postgres community
-Aginity
-R Community, RStudio Community 
-Javier Corripio (insol)
-Hadley Wickham (ggplot, dplyr, stringr, inter alia)
-Coursera and JHU (R)
-Celestia Community
-Amazon Web Services
+    
+Steve Dimse, Philip Gladstone,Ted Lum, Davis Instruments, Weather Display
+   
+Postgres community, 
+Aginity, 
+R Community, RStudio Community,  
+Javier Corripio (insol), 
+Hadley Wickham (ggplot, dplyr, stringr, inter alia), 
+Coursera and JHU, 
+Celestia Community, 
+Amazon Web Services, Lewis Aslett for AMI,
 Stack Overflow community
 
-
-
-annex:  geometry of  Rocculting
-===============
-![sin law](sinlaw.png)
-
+links
+====================
+- CWOP http://wxqa.com
+- CWOP solar radiation archive: http://wxqa.com/lum_search.htm        
+- parsing routine:  www.github.com/lohancock/solardataparser     
+- markdown for this presentation:  www.github.com/lohancock/ams2016     
+- clone the database of parsed solar radiation data:  em to either author (russ4cwop@gmail.com,lohancock@aol.com)
 
 annex:  variables in the archive
 =====================================
 each observation comprises 34 variables including:
-
 **parsed data: 23 variables**
 original report, station name, archive date, date/time as extracted from report, dateflag to highlight nominal dates out of range, calculated date and time z, latitude, N/S, longitude, E/W, wind direction, wind speed, wind gust, temperature (F), rain this hour, rain last 24 hours, rain today, relative humidity, barometric pressure,  solar radiation measurement as given in report, solar radiation as interpreted, flag for number of characters in report, tech suffix providing some description of hardware and software
 **from model: 8 variables**
 julian day,sun azimuth angle, sun zenith angle, modeled solar insolation, diffuse component of modeled insolation, day length, solar declination, equation of time
 **from lookup:**  station height
 **computed** attenuation
-**computed**  Roccultingeqr
+**computed**  occultingeqr
 
-annex - software issue - L>999
-===================================
+annex:  details of clear sky model
+=============================
 
+Used insol routine by Javier Corripio   
+https://cran.r-project.org/web/packages/insol/insol.pdf   
 
-
-
-
-annex - alternative sampling strategy
-======================================
-
-
+Used latitude, longitude, z and relative humidity supplied in observations   
+Used temp(F) supplied in reports, converted to tempK   
+Used height looked up at gpsvisualizer.com   
+Applied to all calculations:  visibility = 90 km, albedo 0.5, ozone=.02
 
 ```{r echo=FALSE, eval=FALSE}
 
@@ -596,4 +726,22 @@ COPY cwoparchive FROM 's3://cwop/lpic/LPIC20100518.txt' CREDENTIALS 'aws_access_
 # The upload is then undertaken for all other dates.
 
 ```
+
+
+annex:  geometry of occulting ring
+============
+      
+$$R_\varnothing =sin(ZA) * \frac {R_\oplus }{sin (\delta)}$$
+
+where  
+      
+  $R_\varnothing \equiv$ radius of ring;  
+  $R_\oplus \equiv$ radius of Earth;   
+  ZA $\equiv$ zenith angle of sun;   
+  $\delta \equiv$ solar declination angle.   
+
+
+
+===========================
+![derivation of r diagram](sinlaw.png)
 

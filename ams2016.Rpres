@@ -64,8 +64,8 @@ library(grid)
 
 # Link to the database and give a local name to the table.
 
-cwop_db<-src_postgres(host='my-cluster-cwop-solar.cix687k0xvpq.us-west-2.redshift.amazonaws.com', port='5439', dbname='dev',
-                      user='lohancock', password='R0samystica0')
+cwop_db<-src_postgres(host='my-cluster-etcetera.redshift.amazonaws.com', port='5439', dbname='dev',
+                      user='username', password='password')
 cwoparchive <- tbl(cwop_db, "cwoparchive")
 millionpoints <- tbl(cwop_db, "millionpoints")
 tenmillionpoints <- tbl(cwop_db, "tenmillionpoints")

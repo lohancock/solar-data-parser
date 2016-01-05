@@ -62,7 +62,8 @@ library(ggmap)
 library (magrittr)
 library(grid)
 
-# Link to the database and give a local name to the table.
+# Link to the database and give a local name to the table.  Note that you should replace -etcetera- with the name you 
+# actually gave this cluster at Redshift.  And username same, and password same.
 
 cwop_db<-src_postgres(host='my-cluster-etcetera.redshift.amazonaws.com', port='5439', dbname='dev',
                       user='username', password='password')

@@ -119,7 +119,7 @@ parsecwopinsolc <- function(filedate) {
 # Note I have my doubts about some of these gust values which don't seem 
 # to fall anywhere above 100 except  bang at 255.
 
-  tpat<-"(t)(-*)([0-9]{3})([a-z A-Z]){1}"
+  tpat<-"(t)(-*)([0-9]{2,3})([a-z A-Z]){1}"
   tparts<-str_match(report,tpat)
   temp<-as.numeric(tparts[,4])
   temp<-ifelse(tparts[,3]=="-",temp*-1,temp)  

@@ -1,10 +1,10 @@
 # solar-data-parser
 Herewith a set of tools to make the archive of solar radiation data from the voluntary observers program (CWOP) available to all.
 
-The NOAA-CWOP Solar Data archive, launched in February 2009, has accumulated a quarter billion observations of solar radiation from a global network of contributing weather stations.  As to organization, the archive is comprised of daily archives, each a collection of reports gathered within a 24-hour period beginning at 11 PM UTC, named 20090218.tar.gz and so on.  By February 2015, the number of contributing stations had risen from about 800 (at archive initiation) to about 2500.  The network has always been global, although concentrated in the US, Europe and Australia.  Most stations send accompanying met data.  Links to the archive can be found at http://www.wxqa.com/lum_search.htm.  A data report prepared at the six-year anniversary of the archive is at http://www.wxqa.com/lum_search.htm.
+The NOAA-CWOP Solar Data archive, launched in February 2009, has accumulated a half billion observations of solar radiation from a global network of contributing weather stations.  The archive is comprised of daily zip files, each a collection of reports gathered within a 24-hour period beginning at 11 PM UTC.  The naming convention begins with 20090218.tar.gz and so on.  By February 2015, the number of contributing stations had risen from about 800 (at archive initiation) to about 2500.  It has risen further since.  The network is global, although concentrated in the US, Europe and Australia.  Most stations send accompanying met data.  Links to the archive can be found at http://www.wxqa.com/lum_search.htm.  A data report prepared at the six-year anniversary of the archive is at http://www.wxqa.com/lum_search.htm.
 
-This repo is designed to present a parsing routine and invite contributions to its development, so to make the data archive 
-truly available to all.  The initial commit is a routine that works, but rejects some stations as out of range or out of format which could actually be rescued with a bit more effort.  For example, one station records time as hhmmss rather than ddhhmm.  This data could be rescued by a programming change.  Another station uses commas as delimiters.  Its data is rejected by the initial parser; it could be rescued instead.  There are other examples.
+This repo is designed to present a parsing routine and invite contributions to its development, making the data archive 
+truly available to all.  The routine provided works but it rejects data not aligned to CWOP protocols.  It accepts variations in the format of L but rejects variations in time, date, latitude and longitude formats, even when the irregularities are obvious and could be fixed with a bit more effort, such as data from a station which records time as hhmmss rather than ddhhmm, and data from stations that use commas where they should use periods. 
 
 What the parser does:
 
@@ -32,8 +32,21 @@ old stations.  Note that the routine makes assumptions about where latlonlist.tx
 (5) parsecwopinsol.R, which sets out the parsing routine.  This also makes assumptions about where input data is stored,
 where output data should go, and where to find latlonelevation.txt
 
+And accordingly the update routine goes as follows.
+
+Start at http://wxqa.com/lum_search.htm.  Navigate to the Google Docs archive and download data to local hard drive.  
+Zip it to a single file and upload to the RStudio instance I have in the cloud (because it's faster), into the data folder.
+Source MakeLatLonList.R (provided here) to make available the routine MakeLList.  
+Call MakeLList in this way:  MakeLList('20170210') and so on.
+This outputs a file latlonlist.txt.
+Open http://www.gpsvisualizer.com/elevation.
+Upload to it the whole file latlonlist.txt.  For output, click Plain Text (a dropdown)
+It will  compute elevations.  Download the result - a file with strange name.
+Then open in Excel and delete the leftmost column and two rightmost  and save it as latlonelevation.txt.  Upload that to the ~/data folder in the cloud.
+Source parseinsolcwopcT2.R (provided here) to make parsecwopinsolc available and also substrright.
+Call it in this way:  parsecwopinsolc ('20170210')  and so on
+Upload all the resulting files to an S3 bucket.
+Launch the Redshift database and using whatever interface software you have chosen, issue commands such as the following single-file ingestion command, substituting your own access keys.  This example is set out for a case where the S3 bucket is entitled cwop and it has a subfolder lpic that contains the parsed data.
+COPY cwoparchive FROM 's3://cwop/lpic/LPIC220170612.txt' CREDENTIALS 'aws_access_key_id=yours;aws_secret_access_key=yours' NULL 'NA' DELIMITER '\t' ACCEPTINVCHARS AS '^';
+
 It all could be more graceful.  Still I hope it is a help.
-
-
-
- 
